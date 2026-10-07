@@ -71,38 +71,59 @@
       border-radius: 9999px;
     }
 
-    /* Result Card entrance animation */
+    /* Result Card entrance animation with GPU acceleration and fill-mode both to prevent flashing/twitching */
     @keyframes dropIn {
-      0% { transform: scale(0.92) translateY(12px); opacity: 0; }
-      100% { transform: scale(1) translateY(0); opacity: 1; }
+      0% {
+        transform: translate3d(0, 16px, 0) scale(0.96);
+        opacity: 0;
+      }
+      100% {
+        transform: translate3d(0, 0, 0) scale(1);
+        opacity: 1;
+      }
     }
     .animate-drop-in {
-      animation: dropIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: dropIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+      will-change: transform, opacity;
+      backface-visibility: hidden;
+      -webkit-font-smoothing: subpixel-antialiased;
     }
 
-    /* 丝滑无缝跑马灯动画：从 0 到 -50% 平滑平移，结合双份内容实现无缝无跳动循环 */
-    @keyframes smoothMarquee {
-      0% { transform: translate3d(0, 0, 0); }
-      100% { transform: translate3d(-50%, 0, 0); }
+    /* 硬件加速纯净平移视窗与跑马灯轨道 */
+    .marquee-viewport {
+      overflow: hidden;
+      width: 100%;
+      position: relative;
+      height: 1.5rem;
+      display: flex;
+      align-items: center;
+      mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+      -webkit-mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
     }
     .marquee-track {
       display: inline-flex;
       align-items: center;
       white-space: nowrap;
       will-change: transform;
-      animation: smoothMarquee 42s linear infinite;
-    }
-    .marquee-track:hover {
-      animation-play-state: paused;
+      transform: translate3d(0, 0, 0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
     }
 
-    /* 玩家大奖高亮呼吸光效 */
-    @keyframes userDrawGlow {
-      0%, 100% { box-shadow: 0 0 6px rgba(229, 168, 59, 0.6); }
-      50% { box-shadow: 0 0 14px rgba(214, 121, 41, 0.9); }
+    /* 玩家大奖高亮呼吸光效：使用硬件合成器属性，杜绝重绘卡顿 */
+    @keyframes userBadgePulse {
+      0%, 100% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 3px rgba(234, 88, 12, 0.5));
+      }
+      50% {
+        transform: scale(1.03);
+        filter: drop-shadow(0 0 7px rgba(217, 119, 6, 0.85));
+      }
     }
     .animate-user-glow {
-      animation: userDrawGlow 1.8s infinite ease-in-out;
+      animation: userBadgePulse 2s infinite ease-in-out;
+      will-change: transform, filter;
     }
 
     /* Paw button pulse */
@@ -148,9 +169,9 @@
       <span class="text-[11px] tracking-wider font-bold">播报:</span>
     </div>
     <!-- 丝滑滚动跑马灯视窗 -->
-    <div class="overflow-hidden flex-1 relative h-6 flex items-center">
+    <div id="marqueeViewport" class="marquee-viewport flex-1 cursor-default">
       <div id="noticeMarqueeTrack" class="marquee-track">
-        <!-- Dynamically rendered twin-track content for seamless infinite looping -->
+        <!-- Dynamically rendered continuous conveyor items -->
       </div>
     </div>
   </div>
@@ -432,12 +453,18 @@
       boxCumulativeDrawn: 0,
       userBag: [],
       soundEnabled: true,
-      lastDrawType: 1,
-      marqueeNotices: []
+      lastDrawType: 1
     };
 
-    // Dynamic random ticker generator: "恭喜阅谷咪#xxxx抽到xxxx"
-    function initDynamicMarquee() {
+    // 跑马灯丝滑传送带变量与状态
+    let marqueeOffset = 0;
+    let lastMarqueeTime = null;
+    let isMarqueePaused = false;
+    const MARQUEE_SPEED = 46; // 每秒平滑滚动像素数
+    const pendingUserNotices = [];
+
+    // 生成随机播报信息：统一规范为“恭喜阅谷咪#xxxx抽到xxxx”
+    function getRandomNotice() {
       const sampleGrades = [
         { grade: 'A赏', name: '毛绒娃娃', tier: 'A' },
         { grade: 'B赏', name: '正比立牌', tier: 'B' },
@@ -449,95 +476,143 @@
         { grade: 'H赏', name: '吧唧拍立得套组A/B/C/D款', tier: 'H' },
         { grade: '特典赏', name: 'Q版证件照', tier: '特典' }
       ];
-
-      function getRandomNotice() {
-        const randId = Math.floor(1000 + Math.random() * 9000);
-        const randChar = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
-        const randPrize = sampleGrades[Math.floor(Math.random() * sampleGrades.length)];
-        return {
-          isUser: false,
-          isHighTier: ['A', 'B', '特典'].includes(randPrize.tier),
-          text: `恭喜阅谷咪#${randId}抽到${randPrize.grade}-${randPrize.name}（${randChar}）`,
-          grade: randPrize.tier
-        };
-      }
-
-      // Generate initial realistic notices
-      state.marqueeNotices = [];
-      for (let i = 0; i < 14; i++) {
-        state.marqueeNotices.push(getRandomNotice());
-      }
-      renderMarqueeText();
-
-      // Periodically inject new random draw events at a relaxed, steady pace (12s)
-      setInterval(() => {
-        state.marqueeNotices.push(getRandomNotice());
-        if (state.marqueeNotices.length > 28) {
-          state.marqueeNotices.shift();
-        }
-        renderMarqueeText();
-      }, 12000);
+      const randId = Math.floor(1000 + Math.random() * 9000);
+      const randChar = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+      const randPrize = sampleGrades[Math.floor(Math.random() * sampleGrades.length)];
+      return {
+        isUser: false,
+        isHighTier: ['A', 'B', '特典'].includes(randPrize.tier),
+        text: `恭喜阅谷咪#${randId}抽到${randPrize.grade}-${randPrize.name}（${randChar}）`,
+        grade: randPrize.tier
+      };
     }
 
-    // 渲染无缝双轨跑马灯内容，支持高亮玩家抽出的赏品
-    function renderMarqueeText() {
-      const track = document.getElementById('noticeMarqueeTrack');
-      if (!track) return;
+    // 创建单条播报DOM节点（统一使用padding，保证在节点增删时位移量严格恒等）
+    function createMarqueeItemElement(item) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'inline-flex items-center flex-shrink-0 px-2.5 py-0';
 
-      const htmlItems = state.marqueeNotices.map(item => {
-        if (item.isUser) {
-          // 突出高亮玩家抽中的赏物：金色渐变高光胶囊 + 皇冠标志 + 呼吸动画
-          const isSuper = ['LAST', '特典', 'A', 'B'].includes(item.grade);
-          const badgeBg = isSuper 
-            ? 'bg-gradient-to-r from-[#d97706] via-[#ea580c] to-[#b91c1c] text-white border border-[#fde047]/80 animate-user-glow font-black' 
-            : 'bg-gradient-to-r from-[#9d836e] to-[#7c6351] text-white border border-[#ede5da] font-bold';
+      if (item.isUser) {
+        const isSuper = ['LAST', '特典', 'A', 'B'].includes(item.grade);
+        const badgeBg = isSuper 
+          ? 'bg-gradient-to-r from-[#d97706] via-[#ea580c] to-[#b91c1c] text-white border border-[#fde047] animate-user-glow font-black shadow-md' 
+          : 'bg-gradient-to-r from-[#9d836e] to-[#7c6351] text-white border border-[#ede5da] font-bold shadow-sm';
 
-          return `
-            <span class="inline-flex items-center space-x-1.5 mx-2.5 px-3 py-0.5 rounded-full ${badgeBg} text-[11px] shadow-sm transform hover:scale-105 transition-transform">
-              <i class="fa-solid fa-crown text-[#fde047] text-[10px]"></i>
-              <span class="tracking-wide">${item.text}</span>
-              <span class="bg-white/25 text-[9px] px-1.5 py-0.2 rounded-full uppercase tracking-tighter">我的赏品</span>
-            </span>
-          `;
-        }
-
-        // 普通用户随机播报
-        if (item.isHighTier) {
-          return `
-            <span class="inline-flex items-center space-x-1 mx-2.5 px-2.5 py-0.5 rounded-full bg-[#fdf5e8] border border-[#f1d09e] text-[#a16207] text-[11px] font-semibold">
-              <i class="fa-solid fa-sparkles text-[#eab308] text-[9px]"></i>
-              <span>${item.text}</span>
-            </span>
-          `;
-        }
-
-        return `
-          <span class="inline-flex items-center space-x-1 mx-2.5 text-[11px] text-[#6d5b4e] font-medium">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#c8b7a6] inline-block"></span>
+        wrapper.innerHTML = `
+          <span class="inline-flex items-center space-x-1.5 px-3 py-0.5 rounded-full ${badgeBg} text-[11px] transform transition-transform">
+            <i class="fa-solid fa-crown text-[#fde047] text-[10px]"></i>
+            <span class="tracking-wide">${item.text}</span>
+            <span class="bg-white/25 text-[9px] px-1.5 py-0.2 rounded-full uppercase tracking-tighter ml-1">我的赏品</span>
+          </span>
+        `;
+      } else if (item.isHighTier) {
+        wrapper.innerHTML = `
+          <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-[#fdf5e8] border border-[#f1d09e] text-[#a16207] text-[11px] font-semibold">
+            <i class="fa-solid fa-sparkles text-[#eab308] text-[9px]"></i>
             <span>${item.text}</span>
           </span>
         `;
-      }).join('');
-
-      // 双份拼接确保在 0 -> -50% 移动时形成天衣无缝、绝对丝滑的无限循环
-      track.innerHTML = `
-        <div class="inline-flex items-center flex-shrink-0">${htmlItems}</div>
-        <div class="inline-flex items-center flex-shrink-0">${htmlItems}</div>
-      `;
+      } else {
+        wrapper.innerHTML = `
+          <span class="inline-flex items-center space-x-1 text-[11px] text-[#6d5b4e] font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#c8b7a6] inline-block mr-1"></span>
+            <span>${item.text}</span>
+          </span>
+        `;
+      }
+      return wrapper;
     }
 
-    // 重点高亮玩家抽出的赏品到滚动播报
-    function appendUserDrawToMarquee(character, gradeName, prizeName, grade = '') {
-      const notice = {
-        isUser: true,
-        grade: grade,
-        text: `恭喜您抽到${gradeName}-${prizeName}（${character}）`
-      };
-      state.marqueeNotices.unshift(notice);
-      if (state.marqueeNotices.length > 30) {
-        state.marqueeNotices.pop();
+    // 初始化动态跑马灯传送带
+    function initDynamicMarquee() {
+      const viewport = document.getElementById('marqueeViewport');
+      const track = document.getElementById('noticeMarqueeTrack');
+      if (!viewport || !track) return;
+
+      track.innerHTML = '';
+      marqueeOffset = 0;
+
+      // 预先填充足量项目，覆盖视窗及右侧缓冲区
+      const minBuffer = Math.max(viewport.offsetWidth || 350, 400) + 400;
+      while (track.scrollWidth < minBuffer) {
+        track.appendChild(createMarqueeItemElement(getRandomNotice()));
       }
-      renderMarqueeText();
+
+      // 悬停/触摸时平滑暂停与恢复
+      viewport.addEventListener('mouseenter', () => { isMarqueePaused = true; });
+      viewport.addEventListener('mouseleave', () => { isMarqueePaused = false; });
+      viewport.addEventListener('touchstart', () => { isMarqueePaused = true; }, { passive: true });
+      viewport.addEventListener('touchend', () => { isMarqueePaused = false; }, { passive: true });
+
+      lastMarqueeTime = performance.now();
+      requestAnimationFrame(tickMarquee);
+    }
+
+    // 基于 requestAnimationFrame 的高帧率连续位移循环（绝对无卡顿、无跳帧、无抽搐）
+    function tickMarquee(timestamp) {
+      const viewport = document.getElementById('marqueeViewport');
+      const track = document.getElementById('noticeMarqueeTrack');
+
+      if (!viewport || !track) {
+        requestAnimationFrame(tickMarquee);
+        return;
+      }
+
+      if (lastMarqueeTime === null) {
+        lastMarqueeTime = timestamp;
+      }
+      // 限制单帧最大时间增量为 80ms，彻底杜绝切屏切回时的暴冲跳动
+      const dt = Math.min((timestamp - lastMarqueeTime) / 1000, 0.08);
+      lastMarqueeTime = timestamp;
+
+      if (!isMarqueePaused) {
+        marqueeOffset -= MARQUEE_SPEED * dt;
+
+        // 当第一个元素完全移出视窗左边缘时，平滑移出DOM并精确补偿位移量
+        while (track.firstElementChild) {
+          const firstChild = track.firstElementChild;
+          const firstWidth = firstChild.getBoundingClientRect().width;
+          if (-marqueeOffset >= firstWidth) {
+            marqueeOffset += firstWidth;
+            track.removeChild(firstChild);
+          } else {
+            break;
+          }
+        }
+
+        // 持续补充右侧视窗缓冲区，确保无限平滑延展
+        const viewportWidth = viewport.offsetWidth || 350;
+        while ((track.scrollWidth + marqueeOffset) < (viewportWidth + 200)) {
+          const nextItem = pendingUserNotices.length > 0 
+            ? pendingUserNotices.shift() 
+            : getRandomNotice();
+          track.appendChild(createMarqueeItemElement(nextItem));
+        }
+
+        // 硬件加速 translate3d 平滑位移
+        track.style.transform = `translate3d(${marqueeOffset.toFixed(2)}px, 0, 0)`;
+      }
+
+      requestAnimationFrame(tickMarquee);
+    }
+
+    // 玩家抽中的赏物直接加入跑马灯传送带，以金色高光徽章顺畅自右侧滑入
+    function appendUserDrawsToMarquee(records) {
+      if (!records || records.length === 0) return;
+      const track = document.getElementById('noticeMarqueeTrack');
+      records.forEach(r => {
+        const gradeName = r.grade === 'LAST' ? 'LAST赏' : (r.grade === '特典' ? '特典赏' : `${r.grade}赏`);
+        const noticeData = {
+          isUser: true,
+          grade: r.grade,
+          text: `恭喜您抽到${gradeName}-${r.itemType}（${r.character}）`
+        };
+        if (track) {
+          track.appendChild(createMarqueeItemElement(noticeData));
+        } else {
+          pendingUserNotices.push(noticeData);
+        }
+      });
     }
 
     // Tone.js audio setup
@@ -904,9 +979,6 @@
         };
         drawnItems.push(drawRecord);
 
-        // Append to dynamic ticker announcement with highlight
-        appendUserDrawToMarquee(ticket.character, `${ticket.grade}赏`, ticket.itemType, ticket.grade);
-
         // Milestone perk check (Every 10th draw milestone up to 8 perks)
         if (state.boxCumulativeDrawn % 10 === 0 && state.specialPerksPool.length > 0) {
           const perk = state.specialPerksPool.pop();
@@ -920,7 +992,6 @@
             timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
           };
           bonusItems.push(bonusRecord);
-          appendUserDrawToMarquee(perk.character, '特典赏', perk.itemType, '特典');
         }
       }
 
@@ -936,7 +1007,6 @@
           isLast: true,
           timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
         };
-        appendUserDrawToMarquee('叶修', 'LAST赏', '叶修带我走双肩包', 'LAST');
       }
 
       // Append to user bag
@@ -949,14 +1019,23 @@
       renderMainInterface();
       openResultsModal(drawnItems, bonusItems, lastPrizeAwarded);
 
-      // Trigger Celebration effects for special pulls
+      // 稍微异步将抽中结果加入滚动播报，优先保证弹窗卡片入场动画丝滑流畅（避免首帧主线程争抢）
+      const totalNotices = [...drawnItems, ...bonusItems];
+      if (lastPrizeAwarded) totalNotices.push(lastPrizeAwarded);
+      requestAnimationFrame(() => {
+        appendUserDrawsToMarquee(totalNotices);
+      });
+
+      // Trigger Celebration effects for special pulls without blocking layout
       const hasHighTier = drawnItems.some(i => ['A', 'B'].includes(i.grade)) || bonusItems.length > 0 || lastPrizeAwarded;
       if (hasHighTier && typeof confetti === 'function') {
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.6 }
-        });
+        setTimeout(() => {
+          confetti({
+            particleCount: 45,
+            spread: 55,
+            origin: { y: 0.6 }
+          });
+        }, 120);
       }
 
       if (lastPrizeAwarded) {
@@ -966,7 +1045,15 @@
       }
     }
 
+    let modalCloseTimer = null;
+
     function openResultsModal(drawnItems, bonusItems, lastPrize) {
+      // 清除任何可能处于排队中的关闭定时器，杜绝弹窗意外隐藏的冲突BUG
+      if (modalCloseTimer) {
+        clearTimeout(modalCloseTimer);
+        modalCloseTimer = null;
+      }
+
       const modal = document.getElementById('resultModal');
       const grid = document.getElementById('resultsCardGrid');
       const bonusAlert = document.getElementById('modalBonusAlert');
@@ -975,6 +1062,7 @@
 
       countSpan.textContent = drawnItems.length;
       grid.innerHTML = '';
+      grid.scrollTop = 0; // 重置滚动条至顶部，确保内容完整呈现
 
       // Bonus / LAST alert bar (明确标示“LAST赏-叶修带我走双肩包”)
       if (lastPrize && bonusItems.length > 0) {
@@ -1009,7 +1097,8 @@
           badgeClass = GRADE_CONFIG[item.grade].badgeClass;
         }
 
-        itemRow.className = `p-3 rounded-2xl bg-white border border-[#ede5da] shadow-sm flex items-center justify-between gap-3 animate-drop-in hover:border-[#dfd3c3] transition`;
+        // 使用 transition-colors 避免与 keyframes transform/opacity 发生属性冲突导致抖动
+        itemRow.className = `p-3 rounded-2xl bg-white border border-[#ede5da] shadow-sm flex items-center justify-between gap-3 animate-drop-in hover:border-[#dfd3c3] transition-colors duration-200`;
         itemRow.style.animationDelay = `${index * 0.05}s`;
 
         itemRow.innerHTML = `
@@ -1039,13 +1128,21 @@
       });
 
       modal.classList.remove('hidden');
-      setTimeout(() => modal.classList.remove('opacity-0'), 20);
+      // 强制重绘，确保过渡效果顺滑生效
+      void modal.offsetWidth;
+      modal.classList.remove('opacity-0');
     }
 
     function closeResultsModal() {
+      if (modalCloseTimer) {
+        clearTimeout(modalCloseTimer);
+      }
       const modal = document.getElementById('resultModal');
       modal.classList.add('opacity-0');
-      setTimeout(() => modal.classList.add('hidden'), 200);
+      modalCloseTimer = setTimeout(() => {
+        modal.classList.add('hidden');
+        modalCloseTimer = null;
+      }, 200);
       playSound('click');
     }
 
@@ -1254,10 +1351,36 @@
       // Result Modal Controls
       document.getElementById('closeModalBtn').addEventListener('click', closeResultsModal);
       document.getElementById('modalConfirmBtn').addEventListener('click', closeResultsModal);
+      
+      // 修复“再来一次”的卡顿与内容不显示BUG
       document.getElementById('modalAgainBtn').addEventListener('click', () => {
-        closeResultsModal();
-        setTimeout(() => executeLotteryDraw(state.lastDrawType), 150);
+        // 1. 若当前箱已抽空，给予提示并正常退出
+        if (state.remainingTickets.length === 0) {
+          closeResultsModal();
+          showToast('本箱赏品已全部抽罄，请点击换箱或刷新开启新一箱！', 'info');
+          return;
+        }
+
+        // 2. 清除任何正在倒计时的关闭定时器，彻底防止弹窗被意外设为 hidden
+        if (modalCloseTimer) {
+          clearTimeout(modalCloseTimer);
+          modalCloseTimer = null;
+        }
+
+        // 3. 产生轻柔平滑的重抽刷新过渡感，并立即执行抽取与结果渲染
+        const grid = document.getElementById('resultsCardGrid');
+        grid.style.opacity = '0.4';
+        grid.style.transform = 'scale(0.99)';
+        grid.style.transition = 'opacity 0.1s ease, transform 0.1s ease';
+
+        setTimeout(() => {
+          grid.style.opacity = '1';
+          grid.style.transform = 'scale(1)';
+          grid.style.transition = '';
+          executeLotteryDraw(state.lastDrawType);
+        }, 100);
       });
+
       document.getElementById('modalGoBagLink').addEventListener('click', () => {
         closeResultsModal();
         setTimeout(openBagDrawer, 150);
