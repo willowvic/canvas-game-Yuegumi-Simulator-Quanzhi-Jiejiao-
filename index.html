@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>阅谷咪模拟之街角漫步 - 全职高手抽赏模拟</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Tone.js for Web Audio -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Oswald:wght@600;700&display=swap');
+
+    :root {
+      --bg-cream: #faf7f2;
+      --bg-card: #ffffff;
+      --primary-brown: #9d836e;
+      --primary-brown-dark: #876f5b;
+      --badge-gold: #e5a83b;
+      --badge-last: #d67a29;
+      --text-main: #3d352e;
+      --text-muted: #8c8176;
+      --border-warm: #ede5da;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-cream);
+      color: var(--text-main);
+      min-height: 100vh;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .font-oswald {
+      font-family: 'Oswald', sans-serif;
+    }
+
+    /* Prize Grade Badges matching image styling */
+    .tier-badge-gold {
+      background-color: #e8a939;
+      color: #ffffff;
+    }
+    .tier-badge-last {
+      background-color: #d67929;
+      color: #ffffff;
+    }
+    .tier-badge-a { background-color: #dd634c; color: #ffffff; }
+    .tier-badge-b { background-color: #d87635; color: #ffffff; }
+    .tier-badge-c { background-color: #876bb0; color: #ffffff; }
+    .tier-badge-d { background-color: #4f85b0; color: #ffffff; }
+    .tier-badge-e { background-color: #4e9d7c; color: #ffffff; }
+    .tier-badge-f { background-color: #8f796d; color: #ffffff; }
+    .tier-badge-g { background-color: #b76687; color: #ffffff; }
+    .tier-badge-h { background-color: #727c8d; color: #ffffff; }
+
+    /* Custom thin scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f0e9df;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #c7baa9;
+      border-radius: 9999px;
+    }
+
+    /* Result Card entrance animation */
+    @keyframes dropIn {
+      0% { transform: scale(0.92) translateY(12px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    .animate-drop-in {
+      animation: dropIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* 丝滑无缝跑马灯动画：从 0 到 -50% 平滑平移，结合双份内容实现无缝无跳动循环 */
+    @keyframes smoothMarquee {
+      0% { transform: translate3d(0, 0, 0); }
+      100% { transform: translate3d(-50%, 0, 0); }
+    }
+    .marquee-track {
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      will-change: transform;
+      animation: smoothMarquee 42s linear infinite;
+    }
+    .marquee-track:hover {
+      animation-play-state: paused;
+    }
+
+    /* 玩家大奖高亮呼吸光效 */
+    @keyframes userDrawGlow {
+      0%, 100% { box-shadow: 0 0 6px rgba(229, 168, 59, 0.6); }
+      50% { box-shadow: 0 0 14px rgba(214, 121, 41, 0.9); }
+    }
+    .animate-user-glow {
+      animation: userDrawGlow 1.8s infinite ease-in-out;
+    }
+
+    /* Paw button pulse */
+    @keyframes pawPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    .animate-paw {
+      animation: pawPulse 2.2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="relative pb-36 select-none text-[#3d352e]">
+
+  <!-- Top App Navigation Bar -->
+  <header class="sticky top-0 z-30 bg-[#faf7f2]/95 backdrop-blur-md border-b border-[#ede5da] px-3 py-2.5">
+    <div class="max-w-md sm:max-w-2xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <button id="navBackBtn" class="w-8 h-8 rounded-full flex items-center justify-center text-[#6e5d50] hover:bg-[#ede5da]/60 active:scale-95 transition">
+          <i class="fa-solid fa-chevron-left text-base"></i>
+        </button>
+        <div>
+          <h1 class="text-base sm:text-lg font-black tracking-wide text-[#382f27]">全职高手-街角漫步</h1>
+          <p class="text-[10px] text-[#9c8471] -mt-0.5 font-medium">阅谷咪模拟之街角漫步 · 96抽限定一箱</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <button id="soundToggleBtn" class="w-8 h-8 rounded-full bg-white border border-[#ede5da] text-[#786453] hover:text-[#382f27] shadow-sm flex items-center justify-center transition active:scale-95" title="音效开关">
+          <i class="fa-solid fa-volume-high text-xs" id="soundIcon"></i>
+        </button>
+        <button id="shareSummaryBtn" class="w-8 h-8 rounded-full bg-white border border-[#ede5da] text-[#786453] hover:text-[#382f27] shadow-sm flex items-center justify-center transition active:scale-95" title="复制战绩">
+          <i class="fa-regular fa-share-from-square text-xs"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Live Draw Announcement Ticker with Dynamic Random Users -->
+  <div class="bg-[#f3ece2] border-b border-[#ede5da] px-3 py-1.5 overflow-hidden text-xs text-[#7d6857] flex items-center shadow-inner">
+    <div class="flex items-center space-x-1.5 flex-shrink-0 mr-2.5 font-bold text-[#b58348] z-10 bg-[#f3ece2] pr-1">
+      <i class="fa-solid fa-bullhorn text-[11px] animate-bounce text-[#d67a29]"></i>
+      <span class="text-[11px] tracking-wider font-bold">播报:</span>
+    </div>
+    <!-- 丝滑滚动跑马灯视窗 -->
+    <div class="overflow-hidden flex-1 relative h-6 flex items-center">
+      <div id="noticeMarqueeTrack" class="marquee-track">
+        <!-- Dynamically rendered twin-track content for seamless infinite looping -->
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-md sm:max-w-2xl mx-auto px-3.5 pt-3 space-y-3.5">
+
+    <!-- Navigation Tabs (默认选中赏品一览抽赏界面) -->
+    <div class="flex items-center justify-between gap-2">
+      <div class="inline-flex p-1 rounded-full bg-[#ebdcd0] border border-[#e4d3c3] text-xs font-bold text-[#86705d] shadow-inner">
+        <button id="tabAllPrizes" class="tab-switch-btn px-3.5 py-1 rounded-full bg-[#9d836e] text-white shadow-sm transition active:scale-95">赏品一览</button>
+        <button id="tabRemaining" class="tab-switch-btn px-3.5 py-1 rounded-full hover:text-[#5a483a] transition active:scale-95">赏品余量</button>
+        <button id="tabRecords" class="tab-switch-btn px-3.5 py-1 rounded-full hover:text-[#5a483a] transition active:scale-95">抽赏记录</button>
+      </div>
+
+      <button id="changeBoxBtn" class="px-3.5 py-1 rounded-full bg-white border border-[#e4d3c3] text-[#735e4d] hover:bg-[#faf6f0] text-xs font-bold shadow-sm flex items-center space-x-1.5 active:scale-95 transition">
+        <i class="fa-solid fa-cube text-[#9d836e]" id="changeBoxIcon"></i>
+        <span>换箱</span>
+      </button>
+    </div>
+
+    <!-- Box Navigation Bar (默认从第 1 箱 96/96抽 开始) -->
+    <div class="flex items-center justify-between bg-white rounded-full px-3 py-1.5 border border-[#ede5da] shadow-sm text-xs font-medium text-[#7d6957]">
+      <button id="prevBoxBtn" class="px-3 py-0.5 rounded-full hover:bg-[#f6f1e8] text-[#8e7a69] font-bold active:scale-95 transition">
+        上一箱
+      </button>
+      <div class="flex items-center space-x-1">
+        <span class="text-[#a49180]">第</span>
+        <span class="font-oswald font-bold text-sm text-[#46382c]" id="boxIndexDisplay">1</span>
+        <span class="text-[#a49180]">/296 箱</span>
+        <span class="text-[#a49180] mx-1">|</span>
+        <span class="text-[#a49180]">剩余</span>
+        <span class="font-oswald font-bold text-base text-[#d27526]" id="boxRemainingDisplay">96</span>
+        <span class="text-[#a49180]">/96 抽</span>
+      </div>
+      <button id="nextBoxBtn" class="px-3 py-0.5 rounded-full hover:bg-[#f6f1e8] text-[#8e7a69] font-bold active:scale-95 transition">
+        下一箱
+      </button>
+    </div>
+
+    <!-- 1. Prize Grid Container (首页默认显示抽赏界面：赏品一览视图) -->
+    <div id="prizeCardsContainer" class="grid grid-cols-3 gap-2.5 pb-2">
+      <!-- Dynamically filled by JavaScript according to screenshot styling -->
+    </div>
+
+    <!-- 2. Prize Inventory & Probability Balance View (赏品余量视图) -->
+    <div id="prizeInventoryContainer" class="hidden space-y-3 pb-2">
+      
+      <!-- Regular Grades A ~ H Table with Real-time Probabilities (Matching Image 3) -->
+      <div class="bg-white rounded-2xl border border-[#ede5da] shadow-sm overflow-hidden">
+        <div class="divide-y divide-[#f2ece3]" id="probListContainer">
+          <!-- Dynamically populated rows: A赏 ~ H赏 with exact alternating zebra style & probabilities -->
+        </div>
+      </div>
+
+      <!-- LAST Prize & Milestone Perks List (Matching Image 4) -->
+      <div class="bg-white rounded-2xl border border-[#ede5da] shadow-sm overflow-hidden">
+        <div class="px-3.5 py-2 bg-[#f9f5ee] border-b border-[#ede5da] flex items-center justify-between text-xs font-bold text-[#866f5c]">
+          <div class="flex items-center space-x-1.5">
+            <i class="fa-solid fa-crown text-[#e5a83b]"></i>
+            <span>特别附赠 & LAST赏进度</span>
+          </div>
+          <span class="text-[10px] text-[#ab9784] font-normal">不占常规96抽数</span>
+        </div>
+        <div class="divide-y divide-[#f2ece3]" id="milestonePerksList">
+          <!-- Dynamically populated matching Image 4: LAST赏 & 特典赏(第80/70/60...10抽送出) -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Right Floating Action Toolbars -->
+  <aside class="fixed right-2.5 top-60 z-30 flex flex-col space-y-2">
+    <button id="openRulesBtn" class="w-10 h-11 rounded-xl bg-white/95 border border-[#e5dcce] shadow-md text-[#786452] flex flex-col items-center justify-center text-[10px] font-bold hover:bg-[#faf6f0] active:scale-95 transition">
+      <i class="fa-regular fa-newspaper text-xs text-[#9d836e] mb-0.5"></i>
+      <span>规则</span>
+    </button>
+    <button id="openBagBtn" class="w-10 h-11 rounded-xl bg-white/95 border border-[#e5dcce] shadow-md text-[#786452] flex flex-col items-center justify-center text-[10px] font-bold hover:bg-[#faf6f0] active:scale-95 transition relative">
+      <i class="fa-solid fa-briefcase text-xs text-[#9d836e] mb-0.5"></i>
+      <span>背包</span>
+      <span id="bagCountBadge" class="absolute -top-1 -right-1 bg-[#d87635] text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow">0</span>
+    </button>
+    <button id="resetCurBoxBtn" class="w-10 h-11 rounded-xl bg-white/95 border border-[#e5dcce] shadow-md text-[#786452] flex flex-col items-center justify-center text-[10px] font-bold hover:bg-[#faf6f0] active:scale-95 transition" title="重洗本箱">
+      <i class="fa-solid fa-rotate-right text-xs text-[#9d836e] mb-0.5"></i>
+      <span>刷新</span>
+    </button>
+  </aside>
+
+  <!-- Bottom Floating Draw Controls matching screenshot -->
+  <footer class="fixed bottom-0 left-0 right-0 z-30 bg-[#faf7f2]/95 backdrop-blur-lg border-t border-[#ede5da] px-3.5 py-3 shadow-[0_-8px_20px_rgba(180,160,140,0.15)]">
+    <div class="max-w-md sm:max-w-2xl mx-auto flex items-center justify-between gap-2.5 relative">
+      
+      <!-- 单抽 (抽一发) -->
+      <button id="draw1Btn" class="flex-1 py-2 px-1.5 rounded-full bg-[#9d836e] hover:bg-[#8e7460] text-white text-center shadow-md active:scale-95 transition flex flex-col items-center justify-center">
+        <span class="text-xs sm:text-sm font-bold tracking-wide">单抽</span>
+        <span class="text-[10px] text-[#f2e7dc] font-normal leading-tight">¥ 33.90</span>
+      </button>
+
+      <!-- 三连抽 (抽三发) -->
+      <button id="draw3Btn" class="flex-1 py-2 px-1.5 rounded-full bg-[#9d836e] hover:bg-[#8e7460] text-white text-center shadow-md active:scale-95 transition flex flex-col items-center justify-center">
+        <span class="text-xs sm:text-sm font-bold tracking-wide">三连抽</span>
+        <span class="text-[10px] text-[#f2e7dc] font-normal leading-tight">¥ 101.70</span>
+      </button>
+
+      <!-- 五连抽 (抽五发) -->
+      <button id="draw5Btn" class="flex-1 py-2 px-1.5 rounded-full bg-[#9d836e] hover:bg-[#8e7460] text-white text-center shadow-md active:scale-95 transition flex flex-col items-center justify-center">
+        <span class="text-xs sm:text-sm font-bold tracking-wide">五连抽</span>
+        <span class="text-[10px] text-[#f2e7dc] font-normal leading-tight">¥ 169.50</span>
+      </button>
+
+      <!-- 全收 ALL IN (包箱彩蛋) -->
+      <button id="drawAllInBtn" class="w-14 h-14 sm:w-16 sm:h-16 -mt-6 rounded-full bg-gradient-to-tr from-[#f3a83b] via-[#f7bc4d] to-[#fad278] border-2 border-white shadow-xl flex flex-col items-center justify-center text-[#5c370e] font-black leading-tight animate-paw hover:brightness-105 active:scale-90 transition flex-shrink-0" title="包圆本箱剩余">
+        <span class="text-xs sm:text-sm">全收</span>
+        <span class="text-[8px] sm:text-[9px] tracking-tighter uppercase font-oswald font-bold">ALL IN</span>
+      </button>
+
+    </div>
+  </footer>
+
+  <!-- ==================== Result Modal (Optimized to guarantee full visibility) ==================== -->
+  <div id="resultModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
+    <div class="w-full max-w-lg bg-[#faf7f2] border border-[#e4d7c8] rounded-3xl shadow-2xl p-4 sm:p-5 relative flex flex-col max-h-[88vh]">
+      
+      <!-- Close button -->
+      <button id="closeModalBtn" class="absolute top-3.5 right-3.5 z-20 w-8 h-8 rounded-full bg-[#eee5d8] text-[#715f50] hover:text-[#382f27] hover:bg-[#e4d7c8] flex items-center justify-center transition active:scale-90">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+
+      <!-- Modal Header: 统一文案为“抽赏结果”与“恭喜抽赏获得以下赏品” -->
+      <div class="text-center pt-1 pb-2 border-b border-[#ebdcd0] flex-shrink-0">
+        <span id="resultModalBadge" class="text-[11px] font-bold px-3 py-0.5 rounded-full bg-[#e8a939]/20 text-[#ab6b18] border border-[#e8a939]/40">
+          街角漫步 · 抽赏结果揭晓
+        </span>
+        <h3 id="resultModalTitle" class="text-lg sm:text-xl font-black text-[#382f27] mt-1">恭喜抽赏获得以下赏品</h3>
+        <p class="text-[11px] text-[#8f7c6b]" id="resultModalSubtext">本次共抽取 <span id="modalDrawnCount" class="font-bold text-[#d27526]">5</span> 发</p>
+      </div>
+
+      <!-- Extra Milestone Perk / LAST Alert Box if triggered -->
+      <div id="modalBonusAlert" class="hidden my-2 p-2.5 rounded-xl bg-[#faebd4] border border-[#f0cfa4] text-xs text-[#9c5f1c] flex items-center space-x-2 flex-shrink-0">
+        <i class="fa-solid fa-crown text-sm text-[#e8a939] flex-shrink-0"></i>
+        <div id="modalBonusText" class="font-bold leading-tight">触发满10抽赠送特典赏！</div>
+      </div>
+
+      <!-- FIXED BUG: Results Scroll Container (min-h-0 + flex-1 allows smooth scrolling so 5 items are NEVER cut off) -->
+      <div id="resultsCardGrid" class="min-h-0 flex-1 overflow-y-auto py-2 pr-1 space-y-2 sm:space-y-2.5">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="pt-3 border-t border-[#ebdcd0] flex items-center justify-between gap-3 flex-shrink-0">
+        <div class="text-xs text-[#8a7767]">
+          已收纳入 <span class="text-[#9d836e] font-bold cursor-pointer underline" id="modalGoBagLink">我的赏柜</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="modalAgainBtn" class="px-4 py-2 rounded-full bg-[#ede4d7] hover:bg-[#e4d8c8] text-[#635041] font-bold text-xs shadow-sm active:scale-95 transition">
+            再来一次
+          </button>
+          <button id="modalConfirmBtn" class="px-5 py-2 rounded-full bg-[#9d836e] hover:bg-[#8a725e] text-white font-bold text-xs shadow-md active:scale-95 transition">
+            确定收下
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Bag / Storage Drawer ==================== -->
+  <div id="bagModal" class="fixed inset-0 z-50 flex items-center justify-end bg-black/50 backdrop-blur-xs hidden opacity-0 transition-opacity duration-300">
+    <div class="w-full max-w-md h-full bg-[#faf7f2] border-l border-[#e4d7c8] p-4 sm:p-5 flex flex-col shadow-2xl transform translate-x-full transition-transform duration-300" id="bagDrawerContent">
+      
+      <!-- Drawer Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-[#ebdcd0]">
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 rounded-full bg-[#9d836e]/20 text-[#866d59] flex items-center justify-center font-bold">
+            <i class="fa-solid fa-briefcase text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-black text-[#382f27]">我的抽赏背包</h3>
+            <p class="text-[11px] text-[#917d6d]">累计抽取 <span id="bagTotalCountDisplay" class="font-bold text-[#d27526]">0</span> 发</p>
+          </div>
+        </div>
+        <button id="closeBagBtn" class="w-8 h-8 rounded-full bg-[#eee5d8] text-[#715f50] hover:text-[#382f27] flex items-center justify-center transition active:scale-90">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Filter Tabs: 包含全部、LAST赏、特典赏以及 A ~ H 全等级赏物筛选标签 -->
+      <div class="flex items-center space-x-1.5 my-2.5 overflow-x-auto pb-1 text-xs whitespace-nowrap" id="bagFilterTabs">
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-[#9d836e] text-white font-bold flex-shrink-0" data-filter="all">全部</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="LAST">LAST赏</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="特典">特典赏</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="A">A赏</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="B">B赏</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="C">C赏</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="D">D赏</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="E">E赏</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="F">F赏</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="G">G赏</button>
+        <button class="bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0" data-filter="H">H赏</button>
+      </div>
+
+      <!-- Bag Item List -->
+      <div id="bagItemsList" class="flex-1 overflow-y-auto space-y-2 pr-1 py-1">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Drawer Footer -->
+      <div class="pt-3 border-t border-[#ebdcd0] flex items-center justify-between gap-2">
+        <button id="clearBagHistoryBtn" class="px-3 py-1.5 rounded-full bg-[#f2e9dc] hover:bg-[#e7dccb] text-[#866e5c] text-xs font-medium transition">
+          清空记录
+        </button>
+        <button id="copyBagListBtn" class="px-4 py-1.5 rounded-full bg-[#9d836e] hover:bg-[#8a725e] text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm">
+          <i class="fa-regular fa-copy"></i>
+          <span>复制赏物清单</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Rules Modal ==================== -->
+  <div id="rulesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden opacity-0 transition-opacity duration-200">
+    <div class="w-full max-w-sm bg-[#faf7f2] border border-[#e4d7c8] rounded-2xl shadow-xl p-4 relative">
+      <button id="closeRulesBtn" class="absolute top-3 right-3 w-7 h-7 rounded-full bg-[#eee5d8] text-[#715f50] flex items-center justify-center">
+        <i class="fa-solid fa-xmark text-xs"></i>
+      </button>
+      <h3 class="text-sm font-black text-[#382f27] mb-2 flex items-center space-x-1.5">
+        <i class="fa-solid fa-circle-question text-[#9d836e]"></i>
+        <span>玩法说明</span>
+      </h3>
+      <div class="text-xs text-[#615143] space-y-2 leading-relaxed max-h-[60vh] overflow-y-auto pr-1 text-justify">
+        <p class="font-bold text-[#382f27]">玩法说明：</p>
+        <p>好物赏是一种全新的开箱玩法，同一个IP主题构成的商品或由阅谷咪自组不同IP构成一个【赏池】，每个赏池里包含若干个【赏箱】，同一赏池内的赏箱包含的商品组成完全相同。根据不同赏池，我们将设置赏箱中的不同【赏级】的【赏品】，如A、B、C、D、E、F、S赏等以及LAST赏、特典赏等，具体赏级、赏品的设置数量及抽取规则请您查看赏池页面知悉。每个赏箱页面会公布商品库存，请您点击“刷新”按钮确认最新库存情况。您也可点击【换箱】选择不同的赏箱进行购买，您可根据您的需求点击【单抽】或【三连抽】或【五连抽】或【全收】购买按钮，获得商品。</p>
+      </div>
+      <button id="confirmRulesBtn" class="w-full mt-3 py-2 rounded-full bg-[#9d836e] text-white text-xs font-bold">
+        我知道了
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toastNotification" class="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-[#3d332a] text-[#fbf6f0] text-xs font-medium shadow-xl flex items-center space-x-2 transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-2">
+    <i id="toastIcon" class="fa-solid fa-circle-info text-[#e5a83b]"></i>
+    <span id="toastMessage">提示信息</span>
+  </div>
+
+  <script>
+    // 8 Signature Characters (WITHOUT ANY TEAM NAMES per instructions)
+    const CHARACTERS = [
+      '叶修',
+      '喻文州',
+      '王杰希',
+      '黄少天',
+      '苏沐橙',
+      '周泽楷',
+      '张佳乐',
+      '韩文清'
+    ];
+
+    // Grade and prize item types definition
+    const GRADE_CONFIG = {
+      'A': { name: 'A赏', itemType: '毛绒娃娃', total: 8, badgeClass: 'tier-badge-a' },
+      'B': { name: 'B赏', itemType: '正比立牌', total: 8, badgeClass: 'tier-badge-b' },
+      'C': { name: 'C赏', itemType: '亚克力背夹', total: 8, badgeClass: 'tier-badge-c' },
+      'D': { name: 'D赏', itemType: '多功能票夹', total: 8, badgeClass: 'tier-badge-d' },
+      'E': { name: 'E赏', itemType: '收纳袋套组', total: 8, badgeClass: 'tier-badge-e' },
+      'F': { name: 'F赏', itemType: '色纸A/B', total: 16, badgeClass: 'tier-badge-f' },
+      'G': { name: 'G赏', itemType: 'Q版立牌', total: 8, badgeClass: 'tier-badge-g' },
+      'H': { name: 'H赏', itemType: '吧唧拍立得套组A/B/C/D款', total: 32, badgeClass: 'tier-badge-h' }
+    };
+
+    // Application state (默认回到抽赏界面第 1 箱)
+    const state = {
+      currentBoxIndex: 1,
+      totalBoxCount: 296,
+      currentView: 'all',         // 默认 'all' (抽赏界面-赏品一览)
+      remainingTickets: [],       // Regular 96 pulls
+      specialPerksPool: [],       // 8 milestone perks (awarded on pulls 10, 20, ..., 80)
+      lastPrizeAvailable: true,   // 1 LAST prize
+      boxCumulativeDrawn: 0,
+      userBag: [],
+      soundEnabled: true,
+      lastDrawType: 1,
+      marqueeNotices: []
+    };
+
+    // Dynamic random ticker generator: "恭喜阅谷咪#xxxx抽到xxxx"
+    function initDynamicMarquee() {
+      const sampleGrades = [
+        { grade: 'A赏', name: '毛绒娃娃', tier: 'A' },
+        { grade: 'B赏', name: '正比立牌', tier: 'B' },
+        { grade: 'C赏', name: '亚克力背夹', tier: 'C' },
+        { grade: 'D赏', name: '多功能票夹', tier: 'D' },
+        { grade: 'E赏', name: '收纳袋套组', tier: 'E' },
+        { grade: 'F赏', name: '色纸A/B', tier: 'F' },
+        { grade: 'G赏', name: 'Q版立牌', tier: 'G' },
+        { grade: 'H赏', name: '吧唧拍立得套组A/B/C/D款', tier: 'H' },
+        { grade: '特典赏', name: 'Q版证件照', tier: '特典' }
+      ];
+
+      function getRandomNotice() {
+        const randId = Math.floor(1000 + Math.random() * 9000);
+        const randChar = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+        const randPrize = sampleGrades[Math.floor(Math.random() * sampleGrades.length)];
+        return {
+          isUser: false,
+          isHighTier: ['A', 'B', '特典'].includes(randPrize.tier),
+          text: `恭喜阅谷咪#${randId}抽到${randPrize.grade}-${randPrize.name}（${randChar}）`,
+          grade: randPrize.tier
+        };
+      }
+
+      // Generate initial realistic notices
+      state.marqueeNotices = [];
+      for (let i = 0; i < 14; i++) {
+        state.marqueeNotices.push(getRandomNotice());
+      }
+      renderMarqueeText();
+
+      // Periodically inject new random draw events at a relaxed, steady pace (12s)
+      setInterval(() => {
+        state.marqueeNotices.push(getRandomNotice());
+        if (state.marqueeNotices.length > 28) {
+          state.marqueeNotices.shift();
+        }
+        renderMarqueeText();
+      }, 12000);
+    }
+
+    // 渲染无缝双轨跑马灯内容，支持高亮玩家抽出的赏品
+    function renderMarqueeText() {
+      const track = document.getElementById('noticeMarqueeTrack');
+      if (!track) return;
+
+      const htmlItems = state.marqueeNotices.map(item => {
+        if (item.isUser) {
+          // 突出高亮玩家抽中的赏物：金色渐变高光胶囊 + 皇冠标志 + 呼吸动画
+          const isSuper = ['LAST', '特典', 'A', 'B'].includes(item.grade);
+          const badgeBg = isSuper 
+            ? 'bg-gradient-to-r from-[#d97706] via-[#ea580c] to-[#b91c1c] text-white border border-[#fde047]/80 animate-user-glow font-black' 
+            : 'bg-gradient-to-r from-[#9d836e] to-[#7c6351] text-white border border-[#ede5da] font-bold';
+
+          return `
+            <span class="inline-flex items-center space-x-1.5 mx-2.5 px-3 py-0.5 rounded-full ${badgeBg} text-[11px] shadow-sm transform hover:scale-105 transition-transform">
+              <i class="fa-solid fa-crown text-[#fde047] text-[10px]"></i>
+              <span class="tracking-wide">${item.text}</span>
+              <span class="bg-white/25 text-[9px] px-1.5 py-0.2 rounded-full uppercase tracking-tighter">我的赏品</span>
+            </span>
+          `;
+        }
+
+        // 普通用户随机播报
+        if (item.isHighTier) {
+          return `
+            <span class="inline-flex items-center space-x-1 mx-2.5 px-2.5 py-0.5 rounded-full bg-[#fdf5e8] border border-[#f1d09e] text-[#a16207] text-[11px] font-semibold">
+              <i class="fa-solid fa-sparkles text-[#eab308] text-[9px]"></i>
+              <span>${item.text}</span>
+            </span>
+          `;
+        }
+
+        return `
+          <span class="inline-flex items-center space-x-1 mx-2.5 text-[11px] text-[#6d5b4e] font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#c8b7a6] inline-block"></span>
+            <span>${item.text}</span>
+          </span>
+        `;
+      }).join('');
+
+      // 双份拼接确保在 0 -> -50% 移动时形成天衣无缝、绝对丝滑的无限循环
+      track.innerHTML = `
+        <div class="inline-flex items-center flex-shrink-0">${htmlItems}</div>
+        <div class="inline-flex items-center flex-shrink-0">${htmlItems}</div>
+      `;
+    }
+
+    // 重点高亮玩家抽出的赏品到滚动播报
+    function appendUserDrawToMarquee(character, gradeName, prizeName, grade = '') {
+      const notice = {
+        isUser: true,
+        grade: grade,
+        text: `恭喜您抽到${gradeName}-${prizeName}（${character}）`
+      };
+      state.marqueeNotices.unshift(notice);
+      if (state.marqueeNotices.length > 30) {
+        state.marqueeNotices.pop();
+      }
+      renderMarqueeText();
+    }
+
+    // Tone.js audio setup
+    let synth = null;
+    let fanfareSynth = null;
+    function initToneAudio() {
+      if (!synth && typeof Tone !== 'undefined') {
+        try {
+          synth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.1, release: 0.2 }
+          }).toDestination();
+          synth.volume.value = -10;
+
+          fanfareSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.02, decay: 0.25, sustain: 0.3, release: 0.5 }
+          }).toDestination();
+          fanfareSynth.volume.value = -8;
+        } catch (e) {
+          console.warn('Tone audio init failed:', e);
+        }
+      }
+    }
+
+    function playSound(type) {
+      if (!state.soundEnabled) return;
+      try {
+        if (Tone.context.state !== 'running') {
+          Tone.start();
+        }
+        initToneAudio();
+        const now = Tone.now();
+        if (type === 'draw') {
+          synth.triggerAttackRelease(['C5', 'E5', 'G5'], '16n', now);
+        } else if (type === 'click') {
+          synth.triggerAttackRelease('G4', '32n', now);
+        } else if (type === 'bonus') {
+          fanfareSynth.triggerAttackRelease(['E5', 'A5', 'B5', 'E6'], '8n', now);
+        } else if (type === 'last') {
+          fanfareSynth.triggerAttackRelease(['C5', 'G5', 'C6', 'E6', 'G6'], '4n', now);
+        }
+      } catch (err) {
+        // Audio fallback
+      }
+    }
+
+    // Initialize Box with 96 regular pulls and 8 milestone perks (默认第 1 箱)
+    function setupBox(boxIndex = 1) {
+      state.currentBoxIndex = boxIndex;
+      state.boxCumulativeDrawn = 0;
+      state.lastPrizeAvailable = true;
+
+      const tickets = [];
+
+      // A赏: 8份 (8款各1份 - 毛绒娃娃)
+      CHARACTERS.forEach(char => tickets.push({ grade: 'A', character: char, itemType: '毛绒娃娃' }));
+
+      // B赏: 8份 (8款各1份 - 正比立牌)
+      CHARACTERS.forEach(char => tickets.push({ grade: 'B', character: char, itemType: '正比立牌' }));
+
+      // C赏: 8份 (8款各1份 - 亚克力背夹)
+      CHARACTERS.forEach(char => tickets.push({ grade: 'C', character: char, itemType: '亚克力背夹' }));
+
+      // D赏: 8份 (8款各1份 - 多功能票夹)
+      CHARACTERS.forEach(char => tickets.push({ grade: 'D', character: char, itemType: '多功能票夹' }));
+
+      // E赏: 8份 (8款各1份 - 收纳袋套组)
+      CHARACTERS.forEach(char => tickets.push({ grade: 'E', character: char, itemType: '收纳袋套组' }));
+
+      // F赏: 16份 (8款各2份 - 色纸A/B)
+      CHARACTERS.forEach(char => {
+        tickets.push({ grade: 'F', character: char, itemType: '色纸 (A款)' });
+        tickets.push({ grade: 'F', character: char, itemType: '色纸 (B款)' });
+      });
+
+      // G赏: 8份 (8款各1份 - Q版立牌)
+      CHARACTERS.forEach(char => tickets.push({ grade: 'G', character: char, itemType: 'Q版立牌' }));
+
+      // H赏: 32份 (8位角色各4款 - 吧唧拍立得套组A/B/C/D款)
+      const hSubTypes = ['A款', 'B款', 'C款', 'D款'];
+      CHARACTERS.forEach(char => {
+        hSubTypes.forEach(sub => {
+          tickets.push({ grade: 'H', character: char, itemType: `吧唧拍立得套组 (${sub})` });
+        });
+      });
+
+      // Fisher-Yates Shuffle
+      for (let i = tickets.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [tickets[i], tickets[j]] = [tickets[j], tickets[i]];
+      }
+      state.remainingTickets = tickets;
+
+      // 特典赏: 8份 (满10抽赠送 - Q版证件照)
+      const perkPool = CHARACTERS.map(char => ({
+        grade: '特典',
+        character: char,
+        itemType: 'Q版证件照',
+        isBonus: true
+      }));
+      for (let i = perkPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [perkPool[i], perkPool[j]] = [perkPool[j], perkPool[i]];
+      }
+      state.specialPerksPool = perkPool;
+
+      renderMainInterface();
+    }
+
+    // Render Main Interface matching the screenshot's card layout and Image 3/4 views
+    function renderMainInterface() {
+      // Box numbers display
+      document.getElementById('boxIndexDisplay').textContent = state.currentBoxIndex;
+      document.getElementById('boxRemainingDisplay').textContent = state.remainingTickets.length;
+      document.getElementById('bagCountBadge').textContent = state.userBag.length;
+
+      // 1. Render Probability Table (赏品余量)
+      renderProbabilityTable();
+
+      // 2. Render Milestone Perks List
+      renderMilestonesList();
+
+      // 3. Render Prize Grid (赏品一览)
+      renderPrizeCardsGrid();
+
+      // Toggle views visibility based on state.currentView
+      const gridContainer = document.getElementById('prizeCardsContainer');
+      const invContainer = document.getElementById('prizeInventoryContainer');
+
+      if (state.currentView === 'remaining') {
+        gridContainer.classList.add('hidden');
+        invContainer.classList.remove('hidden');
+      } else {
+        gridContainer.classList.remove('hidden');
+        invContainer.classList.add('hidden');
+      }
+    }
+
+    // Render Real-time Probability Table matching Image 3
+    function renderProbabilityTable() {
+      const container = document.getElementById('probListContainer');
+      container.innerHTML = '';
+
+      const counts = {};
+      Object.keys(GRADE_CONFIG).forEach(k => counts[k] = 0);
+      state.remainingTickets.forEach(t => {
+        if (counts[t.grade] !== undefined) counts[t.grade]++;
+      });
+
+      const totalRemaining = state.remainingTickets.length;
+
+      const keys = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+      keys.forEach((key, index) => {
+        const conf = GRADE_CONFIG[key];
+        const left = counts[key] || 0;
+        
+        // Exact probability calculation: left / totalRemaining * 100%
+        let probStr = '0.00%';
+        if (totalRemaining > 0 && left > 0) {
+          const prob = (left / totalRemaining) * 100;
+          probStr = prob.toFixed(2) + '%';
+        }
+
+        // Alternating row styling matching Image 3 (white and soft gray zebra striping)
+        const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-[#f8f9fa]';
+
+        const row = document.createElement('div');
+        row.className = `px-4 py-3 flex items-center justify-between text-sm ${rowBg} transition-colors`;
+        row.innerHTML = `
+          <div class="font-bold text-[#453b32] flex items-center space-x-2">
+            <span>${conf.name}</span>
+          </div>
+          <div class="flex items-center space-x-4 text-xs">
+            <span class="font-oswald font-bold text-sm text-[#382f27] tracking-wider">${left}/${conf.total}</span>
+            <span class="text-[#786452] font-mono">概率: <span class="font-bold text-[#46382c]">${probStr}</span></span>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    // Render Milestone Perks & LAST Prize matching Image 4
+    function renderMilestonesList() {
+      const container = document.getElementById('milestonePerksList');
+      container.innerHTML = '';
+
+      // 1. LAST Prize Row - 明确显示“叶修带我走双肩包”
+      const lastRow = document.createElement('div');
+      lastRow.className = "px-4 py-3 flex items-center justify-between text-sm bg-white transition-colors";
+      lastRow.innerHTML = `
+        <div class="font-bold text-[#453b32] flex items-center space-x-2">
+          <span class="px-2 py-0.5 rounded-full tier-badge-last text-[10px]">LAST赏</span>
+          <span class="text-xs text-[#382f27] font-bold">叶修带我走双肩包</span>
+        </div>
+        <div class="flex items-center space-x-2 text-xs">
+          <span class="font-oswald font-bold text-sm text-[#382f27]">${state.lastPrizeAvailable ? '1/1' : '0/1'}</span>
+          <span class="text-[#786452]">随本箱<span class="text-[#8552dc] font-bold">最后一抽</span>送出</span>
+        </div>
+      `;
+      container.appendChild(lastRow);
+
+      // 2. 特典赏 Rows (from 70 down to 10抽, exactly like Image 4)
+      const milestones = [70, 60, 50, 40, 30, 20, 10];
+      milestones.forEach((m, idx) => {
+        // Check if this milestone has already been reached in current box
+        const isReached = state.boxCumulativeDrawn >= m;
+        const rowBg = idx % 2 === 0 ? 'bg-[#f8f9fa]' : 'bg-white';
+
+        const row = document.createElement('div');
+        row.className = `px-4 py-3 flex items-center justify-between text-sm ${rowBg} transition-colors`;
+        row.innerHTML = `
+          <div class="font-bold text-[#453b32] flex items-center space-x-2">
+            <span>特典赏</span>
+          </div>
+          <div class="flex items-center space-x-2 text-xs">
+            <span class="font-oswald font-bold text-sm text-[#382f27]">${isReached ? '0/1' : '1/1'}</span>
+            <span class="text-[#786452]">随本箱<span class="text-[#8552dc] font-bold">第${m}抽</span>送出</span>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    // Render Prize Grid (赏品一览视图)
+    function renderPrizeCardsGrid() {
+      const container = document.getElementById('prizeCardsContainer');
+      container.innerHTML = '';
+
+      // 1. 特典赏 Card
+      const specialLeft = state.specialPerksPool.length;
+      container.appendChild(createPerkCard(specialLeft));
+
+      // 2. LAST赏 Card
+      container.appendChild(createLastPrizeCard(state.lastPrizeAvailable));
+
+      // 3. Regular Grades A - H Cards
+      const counts = {};
+      Object.keys(GRADE_CONFIG).forEach(k => counts[k] = 0);
+      state.remainingTickets.forEach(t => {
+        if (counts[t.grade] !== undefined) counts[t.grade]++;
+      });
+
+      Object.keys(GRADE_CONFIG).forEach(key => {
+        const conf = GRADE_CONFIG[key];
+        const left = counts[key] || 0;
+        container.appendChild(createStandardPrizeCard(key, conf, left));
+      });
+    }
+
+    // Helper: Create Perk Card (特典赏) - 去掉卡片底部解释文案
+    function createPerkCard(specialLeft) {
+      const card = document.createElement('div');
+      card.className = "bg-white rounded-2xl p-2.5 border border-[#ede5da] shadow-sm flex flex-col justify-between relative overflow-hidden text-center min-h-[135px]";
+      
+      const isSoldOut = specialLeft === 0;
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between z-10">
+          <span class="text-[10px] font-black px-2 py-0.5 rounded-full tier-badge-gold shadow-xs">特典赏</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-[#f4ece1] text-[#866e5a] font-oswald">${specialLeft}/8</span>
+        </div>
+
+        <div class="my-2 flex-1 flex flex-col items-center justify-center relative">
+          <div class="w-12 h-12 rounded-xl bg-[#faf5ed] border border-[#ede5da] flex items-center justify-center text-[#e5a83b] text-xl shadow-inner">
+            <i class="fa-solid fa-id-card-clip"></i>
+          </div>
+          ${isSoldOut ? '<div class="absolute inset-0 bg-[#3a3229]/65 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-white text-xs font-bold">已售罄</div>' : ''}
+        </div>
+
+        <div class="z-10 pb-0.5">
+          <div class="text-[11px] font-bold text-[#3d342d] truncate">Q版证件照</div>
+        </div>
+      `;
+      return card;
+    }
+
+    // Helper: Create LAST赏 Card - 去掉卡片底部解释文案
+    function createLastPrizeCard(isAvailable) {
+      const card = document.createElement('div');
+      card.className = "bg-white rounded-2xl p-2.5 border border-[#ede5da] shadow-sm flex flex-col justify-between relative overflow-hidden text-center min-h-[135px]";
+      
+      card.innerHTML = `
+        <div class="flex items-center justify-between z-10">
+          <span class="text-[10px] font-black px-2 py-0.5 rounded-full tier-badge-last shadow-xs">LAST赏</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-[#f4ece1] text-[#866e5a] font-oswald">${isAvailable ? '1/1' : '0/1'}</span>
+        </div>
+
+        <div class="my-2 flex-1 flex flex-col items-center justify-center relative">
+          <div class="w-12 h-12 rounded-xl bg-[#faf5ed] border border-[#ede5da] flex items-center justify-center text-[#d67929] text-xl shadow-inner">
+            <i class="fa-solid fa-crown"></i>
+          </div>
+          ${!isAvailable ? '<div class="absolute inset-0 bg-[#3a3229]/65 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-white text-xs font-bold">已斩获</div>' : ''}
+        </div>
+
+        <div class="z-10 pb-0.5">
+          <div class="text-[11px] font-bold text-[#3d342d] truncate">叶修带我走双肩包</div>
+        </div>
+      `;
+      return card;
+    }
+
+    // Helper: Create Standard A-H Prize Cards - 去掉卡片底部解释文案
+    function createStandardPrizeCard(key, conf, left) {
+      const card = document.createElement('div');
+      card.className = "bg-white rounded-2xl p-2.5 border border-[#ede5da] shadow-sm flex flex-col justify-between relative overflow-hidden text-center min-h-[135px]";
+      
+      const isSoldOut = left === 0;
+      let iconClass = 'fa-gift';
+      if (key === 'A') iconClass = 'fa-shapes';
+      else if (key === 'B' || key === 'G') iconClass = 'fa-user-tag';
+      else if (key === 'C') iconClass = 'fa-paperclip';
+      else if (key === 'D') iconClass = 'fa-ticket';
+      else if (key === 'E') iconClass = 'fa-bag-shopping';
+      else if (key === 'F') iconClass = 'fa-image';
+      else if (key === 'H') iconClass = 'fa-camera-retro';
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between z-10">
+          <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${conf.badgeClass} shadow-xs">${conf.name}</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-[#f4ece1] text-[#866e5a] font-oswald">${left}/${conf.total}</span>
+        </div>
+
+        <div class="my-2 flex-1 flex flex-col items-center justify-center relative">
+          <div class="w-12 h-12 rounded-xl bg-[#faf5ed] border border-[#ede5da] flex items-center justify-center text-[#9d836e] text-lg shadow-inner">
+            <i class="fa-solid ${iconClass}"></i>
+          </div>
+          ${isSoldOut ? '<div class="absolute inset-0 bg-[#3a3229]/65 backdrop-blur-[1px] rounded-xl flex items-center justify-center text-white text-xs font-bold">已售罄</div>' : ''}
+        </div>
+
+        <div class="z-10 pb-0.5">
+          <div class="text-[11px] font-bold text-[#3d342d] truncate">${conf.itemType}</div>
+        </div>
+      `;
+      return card;
+    }
+
+    // Execute Lottery Draw Logic
+    function executeLotteryDraw(count) {
+      if (state.remainingTickets.length === 0) {
+        showToast('本箱赏品已全部抽罄，请点击换箱或刷新开启新一箱！', 'info');
+        return;
+      }
+
+      state.lastDrawType = count;
+      const pullCount = Math.min(count, state.remainingTickets.length);
+      const drawnItems = [];
+      const bonusItems = [];
+      let lastPrizeAwarded = null;
+
+      playSound('draw');
+
+      for (let i = 0; i < pullCount; i++) {
+        const ticket = state.remainingTickets.pop();
+        state.boxCumulativeDrawn++;
+
+        const drawRecord = {
+          grade: ticket.grade,
+          character: ticket.character,
+          itemType: ticket.itemType,
+          drawSeq: state.boxCumulativeDrawn,
+          boxNo: state.currentBoxIndex,
+          timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+        drawnItems.push(drawRecord);
+
+        // Append to dynamic ticker announcement with highlight
+        appendUserDrawToMarquee(ticket.character, `${ticket.grade}赏`, ticket.itemType, ticket.grade);
+
+        // Milestone perk check (Every 10th draw milestone up to 8 perks)
+        if (state.boxCumulativeDrawn % 10 === 0 && state.specialPerksPool.length > 0) {
+          const perk = state.specialPerksPool.pop();
+          const bonusRecord = {
+            grade: '特典',
+            character: perk.character,
+            itemType: perk.itemType,
+            drawSeq: state.boxCumulativeDrawn,
+            boxNo: state.currentBoxIndex,
+            isBonus: true,
+            timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+          };
+          bonusItems.push(bonusRecord);
+          appendUserDrawToMarquee(perk.character, '特典赏', perk.itemType, '特典');
+        }
+      }
+
+      // Check LAST Prize award (triggered when 96 regular pulls hit 0)
+      if (state.remainingTickets.length === 0 && state.lastPrizeAvailable) {
+        state.lastPrizeAvailable = false;
+        lastPrizeAwarded = {
+          grade: 'LAST',
+          character: '叶修',
+          itemType: '叶修带我走双肩包',
+          drawSeq: state.boxCumulativeDrawn,
+          boxNo: state.currentBoxIndex,
+          isLast: true,
+          timestamp: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        };
+        appendUserDrawToMarquee('叶修', 'LAST赏', '叶修带我走双肩包', 'LAST');
+      }
+
+      // Append to user bag
+      drawnItems.forEach(item => state.userBag.push(item));
+      bonusItems.forEach(item => state.userBag.push(item));
+      if (lastPrizeAwarded) {
+        state.userBag.push(lastPrizeAwarded);
+      }
+
+      renderMainInterface();
+      openResultsModal(drawnItems, bonusItems, lastPrizeAwarded);
+
+      // Trigger Celebration effects for special pulls
+      const hasHighTier = drawnItems.some(i => ['A', 'B'].includes(i.grade)) || bonusItems.length > 0 || lastPrizeAwarded;
+      if (hasHighTier && typeof confetti === 'function') {
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.6 }
+        });
+      }
+
+      if (lastPrizeAwarded) {
+        setTimeout(() => playSound('last'), 350);
+      } else if (bonusItems.length > 0) {
+        setTimeout(() => playSound('bonus'), 250);
+      }
+    }
+
+    function openResultsModal(drawnItems, bonusItems, lastPrize) {
+      const modal = document.getElementById('resultModal');
+      const grid = document.getElementById('resultsCardGrid');
+      const bonusAlert = document.getElementById('modalBonusAlert');
+      const bonusText = document.getElementById('modalBonusText');
+      const countSpan = document.getElementById('modalDrawnCount');
+
+      countSpan.textContent = drawnItems.length;
+      grid.innerHTML = '';
+
+      // Bonus / LAST alert bar (明确标示“LAST赏-叶修带我走双肩包”)
+      if (lastPrize && bonusItems.length > 0) {
+        bonusAlert.classList.remove('hidden');
+        bonusText.innerHTML = `🎉 欧气大满贯！触发第10抽<b>【特典赏 · Q版证件照】</b>，更斩获压轴<b>【LAST赏 · 叶修带我走双肩包】</b>！`;
+      } else if (lastPrize) {
+        bonusAlert.classList.remove('hidden');
+        bonusText.innerHTML = `🏆 荣耀时刻！恭喜您抽尽最后一抽，斩获压轴<b>【LAST赏 · 叶修带我走双肩包】</b>！`;
+      } else if (bonusItems.length > 0) {
+        bonusAlert.classList.remove('hidden');
+        bonusText.innerHTML = `🎁 触发满 10 抽赠送！额外获得<b>【特典赏 · Q版证件照】</b> × ${bonusItems.length}！`;
+      } else {
+        bonusAlert.classList.add('hidden');
+      }
+
+      const totalDisplayList = [...drawnItems, ...bonusItems];
+      if (lastPrize) totalDisplayList.push(lastPrize);
+
+      // Render each item as a structured, responsive card without truncating text
+      totalDisplayList.forEach((item, index) => {
+        const itemRow = document.createElement('div');
+        
+        let badgeClass = 'tier-badge-h';
+        let badgeName = `${item.grade}赏`;
+        if (item.grade === 'LAST') {
+          badgeClass = 'tier-badge-last';
+          badgeName = 'LAST赏 🏆';
+        } else if (item.grade === '特典') {
+          badgeClass = 'tier-badge-gold';
+          badgeName = '特典赏 ✨';
+        } else if (GRADE_CONFIG[item.grade]) {
+          badgeClass = GRADE_CONFIG[item.grade].badgeClass;
+        }
+
+        itemRow.className = `p-3 rounded-2xl bg-white border border-[#ede5da] shadow-sm flex items-center justify-between gap-3 animate-drop-in hover:border-[#dfd3c3] transition`;
+        itemRow.style.animationDelay = `${index * 0.05}s`;
+
+        itemRow.innerHTML = `
+          <div class="flex items-center space-x-3 min-w-0">
+            <div class="w-10 h-10 rounded-xl bg-[#faf5ed] border border-[#ede5da] flex items-center justify-center font-black text-sm text-[#876e5a] shadow-inner flex-shrink-0">
+              ${item.character.charAt(0)}
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-black text-[#382f27]">${item.character}</span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeClass} text-white">
+                  ${badgeName}
+                </span>
+              </div>
+              <div class="text-xs font-semibold text-[#8b7665] mt-0.5 break-words whitespace-normal leading-snug">
+                ${item.itemType}
+              </div>
+            </div>
+          </div>
+
+          <div class="text-right flex-shrink-0">
+            <span class="text-[10px] font-mono font-bold text-[#b5a392]">#第${item.drawSeq}抽</span>
+          </div>
+        `;
+
+        grid.appendChild(itemRow);
+      });
+
+      modal.classList.remove('hidden');
+      setTimeout(() => modal.classList.remove('opacity-0'), 20);
+    }
+
+    function closeResultsModal() {
+      const modal = document.getElementById('resultModal');
+      modal.classList.add('opacity-0');
+      setTimeout(() => modal.classList.add('hidden'), 200);
+      playSound('click');
+    }
+
+    function openBagDrawer() {
+      const bagModal = document.getElementById('bagModal');
+      const drawer = document.getElementById('bagDrawerContent');
+      document.getElementById('bagTotalCountDisplay').textContent = state.userBag.length;
+      renderBagItems('all');
+      bagModal.classList.remove('hidden');
+      setTimeout(() => {
+        bagModal.classList.remove('opacity-0');
+        drawer.classList.remove('translate-x-full');
+      }, 20);
+      playSound('click');
+    }
+
+    function closeBagDrawer() {
+      const bagModal = document.getElementById('bagModal');
+      const drawer = document.getElementById('bagDrawerContent');
+      drawer.classList.add('translate-x-full');
+      bagModal.classList.add('opacity-0');
+      setTimeout(() => bagModal.classList.add('hidden'), 280);
+      playSound('click');
+    }
+
+    function renderBagItems(filter = 'all') {
+      const container = document.getElementById('bagItemsList');
+      container.innerHTML = '';
+
+      if (state.userBag.length === 0) {
+        container.innerHTML = `
+          <div class="py-16 text-center text-[#aa9888] space-y-2">
+            <i class="fa-solid fa-briefcase text-3xl text-[#d4c7b8]"></i>
+            <p class="text-xs">背包空空如也，快去点击抽一发吧！</p>
+          </div>
+        `;
+        return;
+      }
+
+      let items = [...state.userBag].reverse();
+      if (filter !== 'all') {
+        items = items.filter(i => i.grade === filter);
+      }
+
+      if (items.length === 0) {
+        container.innerHTML = `<div class="py-10 text-center text-xs text-[#a89787]">该分类暂无赏物</div>`;
+        return;
+      }
+
+      items.forEach(item => {
+        let badgeClass = 'tier-badge-h';
+        if (item.grade === 'LAST') badgeClass = 'tier-badge-last';
+        else if (item.grade === '特典') badgeClass = 'tier-badge-gold';
+        else if (GRADE_CONFIG[item.grade]) badgeClass = GRADE_CONFIG[item.grade].badgeClass;
+
+        const row = document.createElement('div');
+        row.className = "p-2.5 rounded-xl bg-white border border-[#ede5da] flex items-center justify-between text-xs";
+        row.innerHTML = `
+          <div class="flex items-center space-x-2.5 min-w-0">
+            <span class="px-2 py-0.5 rounded-full font-bold text-[10px] text-white ${badgeClass} flex-shrink-0">
+              ${item.grade}
+            </span>
+            <div class="min-w-0">
+              <div class="font-bold text-[#3d3329] truncate">${item.character}</div>
+              <div class="text-[10px] text-[#8e7a69] truncate">${item.itemType}</div>
+            </div>
+          </div>
+          <span class="text-[10px] text-[#b3a190] font-mono flex-shrink-0">${item.timestamp}</span>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    // Copy Bag Summary
+    function copyBagSummary() {
+      if (state.userBag.length === 0) {
+        showToast('背包暂无赏品可复制', 'info');
+        return;
+      }
+
+      const summaryMap = {};
+      state.userBag.forEach(i => {
+        const key = `【${i.grade}赏】${i.character} - ${i.itemType}`;
+        summaryMap[key] = (summaryMap[key] || 0) + 1;
+      });
+
+      let text = `【全职高手 · 阅谷咪模拟之街角漫步 抽赏战绩】\n`;
+      text += `箱号：第 ${state.currentBoxIndex} 箱 | 总抽数：${state.userBag.length} 抽\n`;
+      text += `------------------------------------\n`;
+      Object.entries(summaryMap).forEach(([k, v]) => {
+        text += `${k} × ${v}\n`;
+      });
+      text += `------------------------------------\n荣耀不败，快来测测你的街角漫步欧气！`;
+
+      const input = document.createElement('textarea');
+      input.value = text;
+      document.body.appendChild(input);
+      input.select();
+      try {
+        document.execCommand('copy');
+        showToast('战绩文本已成功复制到剪贴板！', 'success');
+      } catch (err) {
+        showToast('复制失败，请重试', 'error');
+      }
+      document.body.removeChild(input);
+    }
+
+    // Toast helper
+    let toastTimer = null;
+    function showToast(msg, type = 'info') {
+      const toast = document.getElementById('toastNotification');
+      const text = document.getElementById('toastMessage');
+      const icon = document.getElementById('toastIcon');
+
+      text.textContent = msg;
+      if (type === 'success') {
+        icon.className = 'fa-solid fa-circle-check text-emerald-400';
+      } else if (type === 'error') {
+        icon.className = 'fa-solid fa-triangle-exclamation text-rose-400';
+      } else {
+        icon.className = 'fa-solid fa-circle-info text-[#e5a83b]';
+      }
+
+      toast.classList.remove('opacity-0', '-translate-y-2', 'pointer-events-none');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-2', 'pointer-events-none');
+      }, 2400);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // 1. Initial Box Setup (默认从第 1 箱开始) & Dynamic Ticker
+      setupBox(1);
+      initDynamicMarquee();
+
+      // 2. Draw Buttons: Single, 3 Pulls, 5 Pulls
+      document.getElementById('draw1Btn').addEventListener('click', () => executeLotteryDraw(1));
+      document.getElementById('draw3Btn').addEventListener('click', () => executeLotteryDraw(3));
+      document.getElementById('draw5Btn').addEventListener('click', () => executeLotteryDraw(5));
+
+      // All-in / 全收 button
+      document.getElementById('drawAllInBtn').addEventListener('click', () => {
+        if (state.remainingTickets.length === 0) {
+          showToast('本箱已无剩余，请换箱！', 'info');
+          return;
+        }
+        executeLotteryDraw(state.remainingTickets.length);
+      });
+
+      // 换箱模块：点击后随即跳转新箱，更新文案为“已随机降落至新箱”
+      document.getElementById('changeBoxBtn').addEventListener('click', () => {
+        let randomBox;
+        do {
+          randomBox = Math.floor(Math.random() * state.totalBoxCount) + 1;
+        } while (randomBox === state.currentBoxIndex);
+        
+        setupBox(randomBox);
+        playSound('click');
+
+        // 旋转换箱图标微交互
+        const icon = document.getElementById('changeBoxIcon');
+        if (icon) {
+          icon.classList.add('rotate-180', 'transition-transform', 'duration-300');
+          setTimeout(() => icon.classList.remove('rotate-180'), 300);
+        }
+
+        showToast('已随机降落至新箱', 'success');
+      });
+
+      document.getElementById('prevBoxBtn').addEventListener('click', () => {
+        const prev = state.currentBoxIndex > 1 ? state.currentBoxIndex - 1 : state.totalBoxCount;
+        setupBox(prev);
+        playSound('click');
+        showToast(`切换至 第 ${prev} 箱`, 'info');
+      });
+
+      document.getElementById('nextBoxBtn').addEventListener('click', () => {
+        const next = state.currentBoxIndex < state.totalBoxCount ? state.currentBoxIndex + 1 : 1;
+        setupBox(next);
+        playSound('click');
+        showToast(`切换至 第 ${next} 箱`, 'info');
+      });
+
+      document.getElementById('resetCurBoxBtn').addEventListener('click', () => {
+        setupBox(state.currentBoxIndex);
+        playSound('click');
+        showToast(`第 ${state.currentBoxIndex} 箱已重新洗牌！`, 'success');
+      });
+
+      // Sound toggle
+      document.getElementById('soundToggleBtn').addEventListener('click', () => {
+        state.soundEnabled = !state.soundEnabled;
+        const icon = document.getElementById('soundIcon');
+        if (state.soundEnabled) {
+          icon.className = 'fa-solid fa-volume-high text-xs';
+          showToast('音效已开启', 'info');
+        } else {
+          icon.className = 'fa-solid fa-volume-xmark text-xs text-[#a9998b]';
+          showToast('音效已静音', 'info');
+        }
+      });
+
+      // Share summary
+      document.getElementById('shareSummaryBtn').addEventListener('click', copyBagSummary);
+
+      // Result Modal Controls
+      document.getElementById('closeModalBtn').addEventListener('click', closeResultsModal);
+      document.getElementById('modalConfirmBtn').addEventListener('click', closeResultsModal);
+      document.getElementById('modalAgainBtn').addEventListener('click', () => {
+        closeResultsModal();
+        setTimeout(() => executeLotteryDraw(state.lastDrawType), 150);
+      });
+      document.getElementById('modalGoBagLink').addEventListener('click', () => {
+        closeResultsModal();
+        setTimeout(openBagDrawer, 150);
+      });
+
+      // Bag Drawer Controls
+      document.getElementById('openBagBtn').addEventListener('click', openBagDrawer);
+      document.getElementById('closeBagBtn').addEventListener('click', closeBagDrawer);
+      document.getElementById('copyBagListBtn').addEventListener('click', copyBagSummary);
+      document.getElementById('clearBagHistoryBtn').addEventListener('click', () => {
+        if (state.userBag.length === 0) return;
+        state.userBag = [];
+        renderBagItems('all');
+        renderMainInterface();
+        showToast('赏物记录已清空', 'info');
+      });
+
+      // Bag filter tabs
+      document.querySelectorAll('.bag-filter-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          document.querySelectorAll('.bag-filter-tab').forEach(t => {
+            t.className = 'bag-filter-tab px-3 py-1 rounded-full bg-white border border-[#e4d7c8] text-[#766353] flex-shrink-0';
+          });
+          e.target.className = 'bag-filter-tab px-3 py-1 rounded-full bg-[#9d836e] text-white font-bold flex-shrink-0';
+          renderBagItems(e.target.dataset.filter);
+        });
+      });
+
+      // Rules Modal Controls
+      const rulesModal = document.getElementById('rulesModal');
+      const openRules = () => {
+        rulesModal.classList.remove('hidden');
+        setTimeout(() => rulesModal.classList.remove('opacity-0'), 20);
+        playSound('click');
+      };
+      const closeRules = () => {
+        rulesModal.classList.add('opacity-0');
+        setTimeout(() => rulesModal.classList.add('hidden'), 200);
+      };
+      document.getElementById('openRulesBtn').addEventListener('click', openRules);
+      document.getElementById('closeRulesBtn').addEventListener('click', closeRules);
+      document.getElementById('confirmRulesBtn').addEventListener('click', closeRules);
+
+      // Top Tab Switcher (赏品一览 vs 赏品余量 vs 抽赏记录)
+      document.getElementById('tabAllPrizes').addEventListener('click', (e) => {
+        state.currentView = 'all';
+        updateTabStyles(e.target);
+        renderMainInterface();
+        playSound('click');
+      });
+
+      document.getElementById('tabRemaining').addEventListener('click', (e) => {
+        state.currentView = 'remaining';
+        updateTabStyles(e.target);
+        renderMainInterface();
+        playSound('click');
+      });
+
+      document.getElementById('tabRecords').addEventListener('click', (e) => {
+        updateTabStyles(e.target);
+        openBagDrawer();
+      });
+
+      function updateTabStyles(activeBtn) {
+        document.querySelectorAll('.tab-switch-btn').forEach(btn => {
+          btn.className = 'tab-switch-btn px-3.5 py-1 rounded-full hover:text-[#5a483a] transition active:scale-95';
+        });
+        activeBtn.className = 'tab-switch-btn px-3.5 py-1 rounded-full bg-[#9d836e] text-white shadow-sm transition active:scale-95';
+      }
+    });
+  </script>
+</body>
+</html>
